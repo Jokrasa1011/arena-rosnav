@@ -1,7 +1,7 @@
 #!/bin/bash -i
 set -e
 
-export ARENA_ROSNAV_REPO=${ARENA_ROSNAV_REPO:-voshch/arena-rosnav}
+export ARENA_ROSNAV_REPO=${ARENA_ROSNAV_REPO:-jokrasa1011/arena-rosnav}
 export ARENA_BRANCH=${ARENA_BRANCH:-humble}
 export ARENA_ROS_VERSION=${ARENA_ROS_VERSION:-humble}
 
