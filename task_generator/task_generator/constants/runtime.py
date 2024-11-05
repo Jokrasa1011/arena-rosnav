@@ -13,7 +13,8 @@ from . import Constants
 class TaskConfig_General:
     WAIT_FOR_SERVICE_TIMEOUT: float = Constants.get_default("TIMEOUT_WAIT_FOR_SERVICE")
     MAX_RESET_FAIL_TIMES: int = Constants.get_default("MAX_RESET_FAIL_TIMES")
-    RNG: np.random.Generator = np.random.default_rng(1)
+    RNG_SEED: int = Constants.get_default("RNG_SEED")
+    RNG: np.random.Generator = np.random.default_rng("RNG_SEED")
     DESIRED_EPISODES: float = Constants.get_default("EPISODES")
 
 @dataclasses.dataclass
@@ -42,6 +43,7 @@ class TaskGenerator_ConfigNode(Node):
         # declare parameters and set default values 
         self.declare_parameter('timeout_wait_for_service', Config.General.WAIT_FOR_SERVICE_TIMEOUT)
         self.declare_parameter('max_reset_fail_times', Config.General.MAX_RESET_FAIL_TIMES)
+        self.declare_parameter('rng_seed', Config.General.RNG_SEED)
         self.declare_parameter('goal_radius', Config.Robot.GOAL_TOLERANCE_RADIUS)
         self.declare_parameter('goal_tolerance_angle', Config.Robot.GOAL_TOLERANCE_ANGLE)
         self.declare_parameter('spawn_robot_safe_dist', Config.Robot.SPAWN_ROBOT_SAFE_DIST)
@@ -53,6 +55,8 @@ class TaskGenerator_ConfigNode(Node):
         # Fetch the initial parameter values
         Config.General.WAIT_FOR_SERVICE_TIMEOUT = self.get_parameter('timeout_wait_for_service').value
         Config.General.MAX_RESET_FAIL_TIMES = self.get_parameter('max_reset_fail_times').value
+        Config.General.RNG_SEED = self.get_parameter('rng_seed').value
+        Config.General.RNG = np.random.default_rng(Config.General.RNG_SEED)
         Config.Robot.GOAL_TOLERANCE_RADIUS = self.get_parameter('goal_radius').value
         Config.Robot.GOAL_TOLERANCE_ANGLE = self.get_parameter('goal_tolerance_angle').value
         Config.Robot.SPAWN_ROBOT_SAFE_DIST = self.get_parameter('spawn_robot_safe_dist').value
@@ -70,6 +74,9 @@ class TaskGenerator_ConfigNode(Node):
                 Config.General.WAIT_FOR_SERVICE_TIMEOUT = param.value
             elif param.name == 'max_reset_fail_times':
                 Config.General.MAX_RESET_FAIL_TIMES = param.value
+            elif param.name == 'rng_seed':
+                Config.General.RNG_SEED = param.value
+                Config.General.RNG = np.random.default_rng(param.value)
             elif param.name == 'goal_radius':
                 Config.Robot.GOAL_TOLERANCE_RADIUS = param.value
             elif param.name == 'goal_tolerance_angle':
