@@ -17,7 +17,7 @@ export ARENA_WS_DIR=$(realpath "$(eval echo ${INPUT:-${ARENA_WS_DIR}})")
 sudo echo "$ARENA_WS_DIR"
 
 # == remove ros problems ==
-files=$(grep -l "ros" /etc/apt/sources.list.d/* | grep -v "ros2")
+files=$((grep -l "ros" /etc/apt/sources.list.d/* | grep -v "ros2") || echo '')
 
 if [ -n "$files" ]; then
     echo "The following files can cause some problems to installer:"
@@ -49,7 +49,7 @@ if ! grep -q 'export PATH="$HOME/.local/bin"' ~/.bashrc; then
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
   source ~/.bashrc
 fi
-poetry config virtualenvs.in-project true
+$HOME/.local/bin/poetry config virtualenvs.in-project true
 
 # == compile ros ==
 
@@ -234,12 +234,20 @@ if [[ "$choice" =~ ^[Yy] ]]; then
     $SHELL planners.sh
 fi
 
-# install traininp deps (optional)
+# install training deps (optional)
 read -p "Install training dependencies? [N] " choice
 choice="${choice:-N}"
 if [[ "$choice" =~ ^[Yy] ]]; then
     $SHELL training.sh
 fi
+
+# install isaacsim (optional)
+read -p "Install training dependencies? [Y] " choice
+choice="${choice:-Y}"
+if [[ "$choice" =~ ^[Yy] ]]; then
+    $SHELL isaac.sh
+fi
+
 
 cd "${ARENA_WS_DIR}"
 ln -s src/arena/arena-rosnav/tools/poetry_install .
