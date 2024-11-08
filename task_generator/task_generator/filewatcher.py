@@ -5,10 +5,12 @@ import json
 import os
 from typing import Any, Callable, List, Optional
 
-import rospkg
+from ament_index_python.packages import get_package_share_directory
 import yaml
 
-from rosros import rospify as rospy
+import rclpy
+from rclpy.node import Node
+from rclpy.parameter import Parameter
 
 import watchdog.observers
 import watchdog.events
@@ -21,14 +23,14 @@ def observe(file: str, callback: watchdog.events.FileSystemEventHandler):
     observer.start()
     return observer
 
-def safe_callback(fn: Callable):
+def safe_callback(fn: Callable, logger: Callable):
     def wrapper(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
         except KeyboardInterrupt as e:
             raise e
         except Exception as e:
-            rospy.logwarn(f"Exception in callback: {e}")
+            logger.warn(f"Exception in callback: {e}")
 
     return wrapper
 
@@ -50,67 +52,76 @@ def encode(var: Any):
 def get_or_ignore(obj: dict, key: str) -> dict:
     return {key: obj.get(key)} if key in obj else {}
 
-def set_ros_params(params: dict, prefix: str = ""):
-    for key, value in params.items():
-        if isinstance(value, dict):
-            set_ros_params(value, f"{prefix}{key}/")
-        else:
-            rospy.set_param(f"{prefix}{key}", value)
+class TaskGeneratorFileWatcher(Node):
+    def __init__(self):
+        super().__init__('task_generator_filewatcher')
+        
+        # Get the path to the config file
+        self.FILE_TASK_CONFIG = os.path.join(
+            get_package_share_directory("arena_bringup"), #should replace rospkg.RosPack().get_path("arena_bringup") - https://docs.ros.org/en/iron/p/ament_index_python/ament_index_python.packages.html
+            "configs",
+            "task_generator.yaml"
+        )
 
-def run(namespace: Optional[str] = None):
+        self.observers = []
+        self.setup_file_watcher()
 
-    if namespace is None:
-        namespace = rospy.get_namespace()
+    def set_ros_params(self, params: dict, prefix: str = ""):
+        for key, value in params.items():
+            param_name = f"{prefix}{key}"
+            if isinstance(value, dict):
+                self.set_ros_params(value, f"{param_name}.")
+            else:
+                param = Parameter(
+                    param_name,
+                    value=value
+                )
+                self.set_parameters([param])
 
-    FILE_TASK_CONFIG = os.path.join(
-        rospkg.RosPack().get_path("arena_bringup"),
-        "configs",
-        "task_generator.yaml"
-    )
-
-    class TaskConfigHandler(watchdog.events.FileSystemEventHandler):
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.reconfigure()
-
-        @staticmethod
-        def reconfigure():
-            with open(FILE_TASK_CONFIG) as f:
-                content = yaml.safe_load(f)
-
-            rospy.logdebug("SENSING CHANGE OF TASK_MODE PARAMS")
-
-            if 'ros__parameters' in content:
-                set_ros_params(content['ros__parameters'])
-
-        def on_modified(self, event):
-            @safe_callback
-            def callback():
+    def setup_file_watcher(self):
+        class TaskConfigHandler(watchdog.events.FileSystemEventHandler):
+            def __init__(self, node):
+                super().__init__()
+                self.node = node
                 self.reconfigure()
-            callback()
 
-    observers = [
-        observe(FILE_TASK_CONFIG, TaskConfigHandler())
-    ]
+            def reconfigure(self):
+                with open(self.node.FILE_TASK_CONFIG) as f:
+                    content = yaml.safe_load(f)
 
-    def cleanup():
-        for observer in observers:
+                self.node.get_logger().debug("SENSING CHANGE OF TASK_MODE PARAMS")
+
+                if 'ros__parameters' in content:
+                    self.node.set_ros_params(content['ros__parameters'])
+
+            def on_modified(self, event):
+                callback = safe_callback(self.reconfigure, self.node.get_logger())
+                callback()
+
+        self.observers.append(
+            observe(self.FILE_TASK_CONFIG, TaskConfigHandler(self))
+        )
+
+    def cleanup(self):
+        for observer in self.observers:
             observer.stop()
-        for observer in observers:
+        for observer in self.observers:
             observer.join()
 
-    rospy.on_shutdown(cleanup)
-
+def main(args=None):
+    rclpy.init(args=args)
+    
+    node = TaskGeneratorFileWatcher()
+    
     try:
-        while any(observer.is_alive() for observer in observers):
-            for observer in observers:
-                observer.join(1)
-    except KeyboardInterrupt as e:
-        raise e
+        while rclpy.ok() and any(observer.is_alive() for observer in node.observers):
+            rclpy.spin_once(node, timeout_sec=1.0)
+    except KeyboardInterrupt:
+        pass
     finally:
-        cleanup()
+        node.cleanup()
+        node.destroy_node()
+        rclpy.shutdown()
         
 if __name__ == "__main__":
-    rospy.init_node("task_generator_filewatcher")
-    run()
+    main()
