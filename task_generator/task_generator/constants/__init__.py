@@ -1,8 +1,9 @@
 
 from enum import Enum
 import enum
-
+import typing
 from task_generator.shared import Namespace
+
 
 class Constants:
 
@@ -11,6 +12,7 @@ class Constants:
     TASK_GENERATOR_SERVER_NODE = Namespace("task_generator_server")
 
     class Simulator(Enum):
+        DUMMY = "dummy"
         FLATLAND = "flatland"
         GAZEBO = "gazebo"
         UNITY = "unity"
@@ -20,8 +22,8 @@ class Constants:
         DEPLOYMENT = "deployment"
 
     class EntityManager(Enum):
+        DUMMY = "dummy"
         PEDSIM = "pedsim"
-        FLATLAND = "flatland"
         CROWDSIM = "crowdsim"
 
     class TaskMode:
@@ -34,6 +36,10 @@ class Constants:
             @classmethod
             def prefix(cls, *args):
                 return Namespace("tm_obstacles")(*args)
+            
+            @classmethod
+            def default(cls) -> "Constants.TaskMode.TM_Obstacles":
+                return cls.RANDOM
 
         @enum.unique
         class TM_Robots(enum.Enum):
@@ -45,6 +51,10 @@ class Constants:
             @classmethod
             def prefix(cls, *args):
                 return Namespace("tm_robots")(*args)
+            
+            @classmethod
+            def default(cls) -> "Constants.TaskMode.TM_Robots":
+                return cls.RANDOM
 
         @enum.unique
         class TM_Module(enum.Enum):
@@ -57,6 +67,10 @@ class Constants:
             @classmethod
             def prefix(cls, *args):
                 return Namespace("tm_module")(*args)
+            
+            @classmethod
+            def default(cls) -> typing.List["Constants.TaskMode.TM_Module"]:
+                return []
 
     class MapGenerator:
         NODE_NAME = "map_generator"
@@ -92,6 +106,7 @@ class Constants:
     def get_default(param_name, default=None):
         return getattr(Constants.Defaults, param_name, default)
 
+
 class UnityConstants:
     WALL_HEIGHT = 4.0
     ATTACH_SAFE_DIST_SENSOR_TOPIC = "attach_safe_dist_sensor"
@@ -99,7 +114,7 @@ class UnityConstants:
 # if __name__ == "__main__":
 #     rospack = rospkg.RosPack()
 #     config_file_path = os.path.join(rospack.get_path('arena_bringup'), 'configs', 'task_generator.yaml')
-    
+
 #     rospy.init_node("task_generator_server")
 #     load_parameters_from_yaml(config_file_path)
 #     rospy.spin()
